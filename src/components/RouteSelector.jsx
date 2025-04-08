@@ -35,6 +35,10 @@ import Place from '@mui/icons-material/Place';          // From (origin pin)
 import Flag from '@mui/icons-material/Flag';            // To (destination flag)
 import { Polyline } from '@mui/icons-material';
 export default function RouteForm() {
+
+  const API_BASE_URL = "https://80c1-141-11-56-134.ngrok-free.app";
+
+
   const [fromRegions, setFromRegions] = useState([]);
   const [toRegions, setToRegions] = useState([]);
   const [selectedFromRegion, setSelectedFromRegion] = useState('');
@@ -59,7 +63,7 @@ export default function RouteForm() {
   };
 
   useEffect(() => {
-    axios.get('http://localhost:8080/AGENCY/nameList')
+    axios.get(`${API_BASE_URL}/AGENCY/nameList`)
       .then(response => {
         setFromRegions(response.data);
       })
@@ -76,7 +80,7 @@ export default function RouteForm() {
     setShowToRegionError(false);
 
     if (selectedRegionCode) {
-      axios.get(`http://localhost:8080/AGENCY/routes/toDestinations/${selectedRegionCode}`)
+      axios.get(`${API_BASE_URL}/AGENCY/routes/toDestinations/${selectedRegionCode}`)
         .then(response => {
           setToRegions(response.data);
         })
@@ -138,7 +142,7 @@ export default function RouteForm() {
   
   setIsSearching(true);
   try {
-    const response = await axios.get('http://localhost:8080/AGENCY/routes/search', {
+    const response = await axios.get(`${API_BASE_URL}/AGENCY/routes/search`, {
       params: {
         fromRegionCode: selectedFromRegion,
         toRegionCode: selectedToRegion,

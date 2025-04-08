@@ -106,7 +106,7 @@ const SeatSelection = ({ schedule, travellerType }) => {
     }, []);
     useEffect(() => {
       const client = new Client({
-        webSocketFactory: () => new SockJS('http://localhost:8080/AGENCY/seats/ws'),
+        webSocketFactory: () => new SockJS(`${API_BASE_URL}/AGENCY/seats/ws`),
         reconnectDelay: 5000,
         debug: (str) => {
           console.log('STOMP: ', str);
@@ -134,7 +134,7 @@ const SeatSelection = ({ schedule, travellerType }) => {
             }
           });
   
-          fetch(`http://localhost:8080/AGENCY/seats/status/${schedule.scheduleId}`)
+          fetch(`${API_BASE_URL}/AGENCY/seats/status/${schedule.scheduleId}`)
             .then(res => res.json())
             .then(data => setReservedSeats(data))
             .catch(err => console.error('Fetch error:', err));
