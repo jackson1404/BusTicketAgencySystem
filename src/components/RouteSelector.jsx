@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import DropdownSelector from './DropdownSelector';
 import { 
   Paper, 
   Box, 
@@ -29,16 +28,14 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import EventIcon from '@mui/icons-material/Event';
 import PeopleIcon from '@mui/icons-material/People';
 import { CircularProgress } from '@mui/material';
-import ScheduleResults from './ScheduleResults'; // Adjust path as needed
+import ScheduleResults from './ScheduleResults';
 import PublicIcon from '@mui/icons-material/Public';
-import Place from '@mui/icons-material/Place';          // From (origin pin)
-import Flag from '@mui/icons-material/Flag';            // To (destination flag)
+import Place from '@mui/icons-material/Place';
+import Flag from '@mui/icons-material/Flag';
 import { Polyline } from '@mui/icons-material';
+
 export default function RouteForm() {
-
-  const API_BASE_URL = "https://80c1-141-11-56-134.ngrok-free.app";
-
-
+  const API_BASE_URL = "https://7019-140-99-83-45.ngrok-free.app";
   const [fromRegions, setFromRegions] = useState([]);
   const [toRegions, setToRegions] = useState([]);
   const [selectedFromRegion, setSelectedFromRegion] = useState('');
@@ -55,15 +52,17 @@ export default function RouteForm() {
     setSelectedSchedule(schedule);
   };
   
-  // Add this handler
   const handleSeatSelectionComplete = (selectedSeats) => {
     console.log('Booking seats:', selectedSeats, 'for schedule:', selectedSchedule);
-    // Here you would call your booking API
     setSelectedSchedule(null);
   };
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/AGENCY/nameList`)
+    axios.get(`${API_BASE_URL}/AGENCY/nameList`, {
+      headers: {
+        'ngrok-skip-browser-warning': 'true'
+      }
+    })
       .then(response => {
         setFromRegions(response.data);
       })
@@ -72,7 +71,6 @@ export default function RouteForm() {
       });
   }, []);
 
-
   const handleFromRegionChange = (event) => {
     const selectedRegionCode = parseInt(event.target.value, 10);
     setSelectedFromRegion(selectedRegionCode);
@@ -80,7 +78,11 @@ export default function RouteForm() {
     setShowToRegionError(false);
 
     if (selectedRegionCode) {
-      axios.get(`${API_BASE_URL}/AGENCY/routes/toDestinations/${selectedRegionCode}`)
+      axios.get(`${API_BASE_URL}/AGENCY/routes/toDestinations/${selectedRegionCode}`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      })
         .then(response => {
           setToRegions(response.data);
         })
@@ -100,7 +102,7 @@ export default function RouteForm() {
 
   const handleSeatChange = (change) => {
     const newCount = seatCount + change;
-    if (newCount >= 1 && newCount <= 4) {  // Enforce 1-4 range
+    if (newCount >= 1 && newCount <= 4) {
       setSeatCount(newCount);
     }
   };
@@ -121,7 +123,6 @@ export default function RouteForm() {
     date: false
   });
 
-  // Validate all fields
   const validateForm = () => {
     const newErrors = {
       fromRegion: !selectedFromRegion,
@@ -132,31 +133,33 @@ export default function RouteForm() {
     return !Object.values(newErrors).some(Boolean);
   };
 
-  // Clear error when field is focused
   const handleFocus = (field) => {
     setErrors(prev => ({ ...prev, [field]: false }));
   };
 
   const handleSubmit = async () => {
-  if (!validateForm()) return;
-  
-  setIsSearching(true);
-  try {
-    const response = await axios.get(`${API_BASE_URL}/AGENCY/routes/search`, {
-      params: {
-        fromRegionCode: selectedFromRegion,
-        toRegionCode: selectedToRegion,
-        travelDate: selectedDate.format('YYYY-MM-DD')
-      }
-    });
-    setSchedules(response.data);
-  } catch (error) {
-    console.error('Error searching schedules:', error);
-    setSchedules([]);
-  } finally {
-    setIsSearching(false);
-  }
-};
+    if (!validateForm()) return;
+    
+    setIsSearching(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/AGENCY/routes/search`, {
+        params: {
+          fromRegionCode: selectedFromRegion,
+          toRegionCode: selectedToRegion,
+          travelDate: selectedDate.format('YYYY-MM-DD')
+        },
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      });
+      setSchedules(response.data);
+    } catch (error) {
+      console.error('Error searching schedules:', error);
+      setSchedules([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   return (
     <Paper elevation={3} sx={{ 
