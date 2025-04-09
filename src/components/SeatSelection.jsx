@@ -21,8 +21,9 @@ import {
 } from '@mui/icons-material';
 import { Client } from '@stomp/stompjs';
 import { useNavigate } from 'react-router-dom';
-import SockJS from 'sockjs-client'; // Add this import
+import SockJS from 'sockjs-client';
 
+const API_BASE_URL = "https://7019-140-99-83-45.ngrok-free.app";
 
 const SeatSelection = ({ schedule, travellerType }) => {
   const [selectedSeats, setSelectedSeats] = useState([]);
@@ -78,8 +79,9 @@ const SeatSelection = ({ schedule, travellerType }) => {
       });
     }, 1000);
   };
-   // Handle seat timeout
-   const handleSeatTimeout = (seatNumber) => {
+
+  // Handle seat timeout
+  const handleSeatTimeout = (seatNumber) => {
     if (clientRef.current && clientRef.current.connected) {
       const message = {
         scheduleId: schedule.scheduleId,
@@ -96,135 +98,142 @@ const SeatSelection = ({ schedule, travellerType }) => {
 
     setSelectedSeats(prev => prev.filter(s => s !== seatNumber));
   };
-    // Clean up countdowns on unmount
-    useEffect(() => {
-      return () => {
-        Object.values(countdownRefs.current).forEach(interval => {
-          clearInterval(interval);
-        });
-      };
-    }, []);
-    useEffect(() => {
-      const client = new Client({
-        webSocketFactory: () => new SockJS(`${API_BASE_URL}/AGENCY/seats/ws`),
-        reconnectDelay: 5000,
-        debug: (str) => {
-          console.log('STOMP: ', str);
-        },
-        onConnect: () => {
-          console.log('WebSocket Connected');
-          setIsConnected(true);
-          setRetryCount(0);
-  
-          client.subscribe(`/topic/seats/${schedule.scheduleId}`, (message) => {
-            try {
-              const update = JSON.parse(message.body);
-              if (update.action === 'release') {
-                setReservedSeats(prev =>
-                  prev.filter(s => s.scheduleId !== update.scheduleId || s.seatNumber !== update.seatNumber)
-                );
-              } else {
-                setReservedSeats(prev => [
-                  ...prev.filter(s => s.scheduleId !== update.scheduleId || s.seatNumber !== update.seatNumber),
-                  update
-                ]);
-              }
-            } catch (error) {
-              console.error('Error parsing message:', error);
-            }
-          });
-  
-          fetch(`${API_BASE_URL}/AGENCY/seats/status/${schedule.scheduleId}`)
-            .then(res => res.json())
-            .then(data => setReservedSeats(data))
-            .catch(err => console.error('Fetch error:', err));
-        },
-        onDisconnect: () => {
-          console.log('WebSocket Disconnected');
-          setIsConnected(false);
-          if (retryCount < 5) {
-            const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
-            setTimeout(() => {
-              setRetryCount(c => c + 1);
-              client.activate();
-            }, delay);
-          }
-        },
-        onStompError: (frame) => {
-          console.error('STOMP error:', frame.headers.message);
-        }
+
+  // Clean up countdowns on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(countdownRefs.current).forEach(interval => {
+        clearInterval(interval);
       });
-  
-      client.activate();
-      clientRef.current = client;
-  
-      return () => {
-        if (clientRef.current) {
-          clientRef.current.deactivate();
-        }
-      };
-    }, [schedule.scheduleId, retryCount]);
-  
-    const handleSeatClick = (seatNumber) => {
-      if (reservedSeats.some(s => s.seatNumber === seatNumber && !selectedSeats.includes(seatNumber))) {
-        return;
-      }
-  
-      setSelectedSeats(prev => {
-        const newSelection = prev.includes(seatNumber)
-          ? prev.filter(s => s !== seatNumber)
-          : [...prev, seatNumber];
-  
-        if (clientRef.current && clientRef.current.connected) {
+    };
+  }, []);
+
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/AGENCY/seats/ws`),
+      reconnectDelay: 5000,
+      debug: (str) => {
+        console.log('STOMP: ', str);
+      },
+      onConnect: () => {
+        console.log('WebSocket Connected');
+        setIsConnected(true);
+        setRetryCount(0);
+
+        client.subscribe(`/topic/seats/${schedule.scheduleId}`, (message) => {
           try {
-            const message = {
-              scheduleId: schedule.scheduleId,
-              seatNumber,
-              action: prev.includes(seatNumber) ? 'release' : 'select'
-            };
-            
-            clientRef.current.publish({
-              destination: '/app/seats/select',
-              body: JSON.stringify(message),
-              headers: {'content-type': 'application/json'}
-            });
-  
-            // Start countdown when selecting a seat
-            if (!prev.includes(seatNumber)) {
-              startCountdown(seatNumber);
+            const update = JSON.parse(message.body);
+            if (update.action === 'release') {
+              setReservedSeats(prev =>
+                prev.filter(s => s.scheduleId !== update.scheduleId || s.seatNumber !== update.seatNumber)
+              );
             } else {
-              // Clear countdown when deselecting
-              clearInterval(countdownRefs.current[seatNumber]);
-              setCountdowns(prev => {
-                const newCountdowns = { ...prev };
-                delete newCountdowns[seatNumber];
-                return newCountdowns;
-              });
+              setReservedSeats(prev => [
+                ...prev.filter(s => s.scheduleId !== update.scheduleId || s.seatNumber !== update.seatNumber),
+                update
+              ]);
             }
           } catch (error) {
-            console.error('Error sending message:', error);
+            console.error('Error parsing message:', error);
           }
+        });
+
+        fetch(`${API_BASE_URL}/AGENCY/seats/status/${schedule.scheduleId}`, {
+          headers: {
+            'ngrok-skip-browser-warning': 'true'
+          }
+        })
+          .then(res => res.json())
+          .then(data => setReservedSeats(data))
+          .catch(err => console.error('Fetch error:', err));
+      },
+      onDisconnect: () => {
+        console.log('WebSocket Disconnected');
+        setIsConnected(false);
+        if (retryCount < 5) {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 30000);
+          setTimeout(() => {
+            setRetryCount(c => c + 1);
+            client.activate();
+          }, delay);
         }
-  
-        return newSelection;
-      });
+      },
+      onStompError: (frame) => {
+        console.error('STOMP error:', frame.headers.message);
+      }
+    });
+
+    client.activate();
+    clientRef.current = client;
+
+    return () => {
+      if (clientRef.current) {
+        clientRef.current.deactivate();
+      }
     };
-  
-    const getSeatStatus = (seatNumber) => {
-      if (selectedSeats.includes(seatNumber)) return 'selected';
-      if (reservedSeats.some(s => s.seatNumber === seatNumber)) return 'reserved';
-      return 'available';
-    };
-  
-    const handleConfirmBooking = () => {
-      console.log('Confirmed seats:', selectedSeats);
-      // Clear all countdowns when booking is confirmed
-      selectedSeats.forEach(seat => {
-        clearInterval(countdownRefs.current[seat]);
-      });
-      alert(`Booking confirmed for seats: ${selectedSeats.join(', ')}`);
-      navigate('/booking-confirmed');
-    };
+  }, [schedule.scheduleId, retryCount]);
+
+  const handleSeatClick = (seatNumber) => {
+    if (reservedSeats.some(s => s.seatNumber === seatNumber && !selectedSeats.includes(seatNumber))) {
+      return;
+    }
+
+    setSelectedSeats(prev => {
+      const newSelection = prev.includes(seatNumber)
+        ? prev.filter(s => s !== seatNumber)
+        : [...prev, seatNumber];
+
+      if (clientRef.current && clientRef.current.connected) {
+        try {
+          const message = {
+            scheduleId: schedule.scheduleId,
+            seatNumber,
+            action: prev.includes(seatNumber) ? 'release' : 'select'
+          };
+          
+          clientRef.current.publish({
+            destination: '/app/seats/select',
+            body: JSON.stringify(message),
+            headers: {'content-type': 'application/json'}
+          });
+
+          // Start countdown when selecting a seat
+          if (!prev.includes(seatNumber)) {
+            startCountdown(seatNumber);
+          } else {
+            // Clear countdown when deselecting
+            clearInterval(countdownRefs.current[seatNumber]);
+            setCountdowns(prev => {
+              const newCountdowns = { ...prev };
+              delete newCountdowns[seatNumber];
+              return newCountdowns;
+            });
+          }
+        } catch (error) {
+          console.error('Error sending message:', error);
+        }
+      }
+
+      return newSelection;
+    });
+  };
+
+  const getSeatStatus = (seatNumber) => {
+    if (selectedSeats.includes(seatNumber)) return 'selected';
+    if (reservedSeats.some(s => s.seatNumber === seatNumber)) return 'reserved';
+    return 'available';
+  };
+
+  const handleConfirmBooking = () => {
+    console.log('Confirmed seats:', selectedSeats);
+    // Clear all countdowns when booking is confirmed
+    selectedSeats.forEach(seat => {
+      clearInterval(countdownRefs.current[seat]);
+    });
+    alert(`Booking confirmed for seats: ${selectedSeats.join(', ')}`);
+    navigate('/booking-confirmed');
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Button 
@@ -274,7 +283,6 @@ const SeatSelection = ({ schedule, travellerType }) => {
           {/* Driver Area */}
           <Box sx={{
             position: 'absolute',
-    
             left: 40,
             top: '7%',
             transform: 'translateY(-50%)',
@@ -300,111 +308,107 @@ const SeatSelection = ({ schedule, travellerType }) => {
           </Box>
           
           {/* Seats Grid */}
-<Grid container spacing={2} sx={{ 
-  mt: 10,
-  ml: -2, 
-  mr: 12,
-  '& .seat-row': {
-    display: 'flex',
-    justifyContent: 'center',
-    width: '100%',
-    mb: 2
-  }
-}}>
-  {Array.from(new Set(seatLayout.map(seat => seat.row))).map(row => {
-    const rowSeats = seatLayout.filter(seat => seat.row === row);
-    const rowLetter = String.fromCharCode(65 + row);
-    
-    return (
-      <Grid item xs={12} key={`row-${row}`} className="seat-row">
-        <Stack direction="row" spacing={2} justifyContent="center">
-          
-        {rowSeats.map((seat, index) => {
-        const status = getSeatStatus(seat.number);
-        const timeLeft = countdowns[seat.number] || 0;
-
-        return (
-          <React.Fragment key={seat.id}>
-            <Button
-              variant={status === 'selected' ? 'contained' : 'outlined'}
-              color={
-                status === 'selected' ? 'primary' :
-                status === 'reserved' ? 'secondary' : 'inherit'
-              }
-              disabled={status === 'reserved'}
-              onClick={() => handleSeatClick(seat.number)}
-              sx={{
-                minWidth: 80,
-                height: 80,
-                display: 'flex',
-                flexDirection: 'column',
-                position: 'relative',
-                opacity: status === 'reserved' ? 0.7 : 1
-              }}
-            >
-              <EventSeat sx={{ 
-                fontSize: 30,
-                color: status === 'available' ? 'action.active' : 'inherit'
-              }} />
-              <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                {seat.number}
-              </Typography>
+          <Grid container spacing={2} sx={{ 
+            mt: 10,
+            ml: -2, 
+            mr: 12,
+            '& .seat-row': {
+              display: 'flex',
+              justifyContent: 'center',
+              width: '100%',
+              mb: 2
+            }
+          }}>
+            {Array.from(new Set(seatLayout.map(seat => seat.row))).map(row => {
+              const rowSeats = seatLayout.filter(seat => seat.row === row);
+              const rowLetter = String.fromCharCode(65 + row);
               
-              {/* Countdown indicator */}
-              {status === 'selected' && timeLeft > 0 && (
-                <Box sx={{
-                  position: 'absolute',
-                  bottom: 4,
-                  left: 4,
-                  right: 4,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0.5
-                }}>
-                  <AccessTime fontSize="small" />
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={(timeLeft / 120) * 100} 
-                    sx={{
-                      flexGrow: 1,
-                      height: 4,
-                      borderRadius: 2
-                    }}
-                  />
-                  <Typography variant="caption" sx={{ ml: 0.5 }}>
-                    {timeLeft}s
-                  </Typography>
-                </Box>
-              )}
+              return (
+                <Grid item xs={12} key={`row-${row}`} className="seat-row">
+                  <Stack direction="row" spacing={2} justifyContent="center">
+                    {rowSeats.map((seat, index) => {
+                      const status = getSeatStatus(seat.number);
+                      const timeLeft = countdowns[seat.number] || 0;
 
-              {status === 'reserved' && (
-                <Box sx={{
-                  position: 'absolute',
-                  top: 4,
-                  right: 4,
-                  width: 12,
-                  height: 12,
-                  bgcolor: 'secondary.main',
-                  borderRadius: '50%'
-                }} />
-              )}
-            </Button>
+                      return (
+                        <React.Fragment key={seat.id}>
+                          <Button
+                            variant={status === 'selected' ? 'contained' : 'outlined'}
+                            color={
+                              status === 'selected' ? 'primary' :
+                              status === 'reserved' ? 'secondary' : 'inherit'
+                            }
+                            disabled={status === 'reserved'}
+                            onClick={() => handleSeatClick(seat.number)}
+                            sx={{
+                              minWidth: 80,
+                              height: 80,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              position: 'relative',
+                              opacity: status === 'reserved' ? 0.7 : 1
+                            }}
+                          >
+                            <EventSeat sx={{ 
+                              fontSize: 30,
+                              color: status === 'available' ? 'action.active' : 'inherit'
+                            }} />
+                            <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                              {seat.number}
+                            </Typography>
+                            
+                            {/* Countdown indicator */}
+                            {status === 'selected' && timeLeft > 0 && (
+                              <Box sx={{
+                                position: 'absolute',
+                                bottom: 4,
+                                left: 4,
+                                right: 4,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5
+                              }}>
+                                <AccessTime fontSize="small" />
+                                <LinearProgress 
+                                  variant="determinate" 
+                                  value={(timeLeft / 120) * 100} 
+                                  sx={{
+                                    flexGrow: 1,
+                                    height: 4,
+                                    borderRadius: 2
+                                  }}
+                                />
+                                <Typography variant="caption" sx={{ ml: 0.5 }}>
+                                  {timeLeft}s
+                                </Typography>
+                              </Box>
+                            )}
 
-            {/* Add aisle spacing after second seat */}
-            {index === 1 && (
-              <Box sx={{ width: 130 }} />
-            )}
-          </React.Fragment>
-        );
-      })}
-        </Stack>
-      </Grid>
-    );
-  })}
-</Grid>
+                            {status === 'reserved' && (
+                              <Box sx={{
+                                position: 'absolute',
+                                top: 4,
+                                right: 4,
+                                width: 12,
+                                height: 12,
+                                bgcolor: 'secondary.main',
+                                borderRadius: '50%'
+                              }} />
+                            )}
+                          </Button>
 
-          
-        
+                          {/* Add aisle spacing after second seat */}
+                          {index === 1 && (
+                            <Box sx={{ width: 130 }} />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </Stack>
+                </Grid>
+              );
+            })}
+          </Grid>
         </Box>
         
         {/* Legend */}
