@@ -23,7 +23,7 @@ import { Client } from '@stomp/stompjs';
 import { useNavigate } from 'react-router-dom';
 import SockJS from 'sockjs-client';
 
-const API_BASE_URL = "https://91ce-172-99-188-104.ngrok-free.app";
+const API_BASE_URL = "https://f6e2-172-99-188-104.ngrok-free.app";
 
 const SeatSelection = ({ schedule, travellerType }) => {
   const [selectedSeats, setSelectedSeats] = useState([]);
