@@ -110,13 +110,16 @@ const SeatSelection = ({ schedule, travellerType }) => {
 
   useEffect(() => {
     const client = new Client({
-      webSocketFactory: () =>  new SockJS(`${API_BASE_URL}/AGENCY/seats/ws`, null, {
-        withCredentials: true,
-      }),
-      reconnectDelay: 5000,
-      debug: (str) => {
-        console.log('STOMP: ', str);
+      brokerURL: `${API_BASE_URL}/AGENCY/seats/ws`,
+      connectHeaders: {},
+      debug: function (str) {
+          console.log('STOMP: ' + str);
       },
+      reconnectDelay: 5000,
+      webSocketFactory: () => new SockJS(`${API_BASE_URL}/AGENCY/seats/ws`, null, {
+        transports: ['websocket', 'xhr-streaming', 'xhr-polling'],
+        withCredentials: true
+    }),
       onConnect: () => {
         console.log('WebSocket Connected');
         setIsConnected(true);
